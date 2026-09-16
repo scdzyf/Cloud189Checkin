@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: 40 3 * * *
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -17,10 +18,10 @@ jobs:
         run: sleep $((RANDOM % 301))
 
       - name: 🔌 Check out code
-        uses: actions/checkout@main
+        uses: actions/checkout@v5
 
       - name: 🔨 Setup Node.js environment
-        uses: actions/setup-node@main
+        uses: actions/setup-node@v5
         with:
           node-version: 18
           cache: npm
@@ -29,28 +30,34 @@ jobs:
         if: vars.debug == '1'
         run: |
           echo "CLOUD189_VERBOSE=1" >> $GITHUB_ENV
-      
+
       - name: 📹 Restore cached Cookie
         id: cache-cookie-restore
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: .token
           key: cloud189-token-${{ hashFiles('.token/*.json') }}
           restore-keys: cloud189-token-
 
-      - name: 🔧 Init secrets
-        uses: shine1594/secrets-to-env-action@master
-        with:
-          secrets: ${{ toJSON(secrets) }}
-          secrets_env: production
-          prefix_prod: ""
-          file_name_prod: .env
+      # ============ 替代 shine1594/secrets-to-env-action@master（旧版 Node 运行时已废弃）============
+      # 原理：把 environment:user 环境下全部 secrets 转成 .env 文件，与原插件行为一致，无需知道密钥名
+      - name: 🔧 Init secrets (generate .env)
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          secrets = json.loads(os.environ["SECRETS_JSON"])
+          with open(".env", "w", encoding="utf-8") as f:
+              for key, value in secrets.items():
+                  f.write(f"{key}={value}\n")
+          PY
 
       - name: 📡 Init dependencies
         run: npm install
 
       - name: 🚀 Run
-        uses: nick-fields/retry@master
+        uses: nick-fields/retry@v3
         with:
           timeout_minutes: 30
           max_attempts: 3
@@ -64,7 +71,8 @@ jobs:
 
       - name: 📹 Save cached Cookie
         if: always() && env.TOKEN_HASH != ''
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
+        continue-on-error: true
         with:
           path: .token
           key: cloud189-token-${{ env.TOKEN_HASH }}
@@ -80,7 +88,7 @@ jobs:
           git push
 
       - name: 🎉 Delete old workflow run
-        uses: Mattraks/delete-workflow-runs@main
+        uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
