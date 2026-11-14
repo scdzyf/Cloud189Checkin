@@ -7,7 +7,7 @@ on:
     types: started
   workflow_dispatch:
   schedule:
-    - cron: 20 1 * * *
+    - cron: 20 3 * * *
 
 jobs:
   build-and-deploy:
@@ -39,8 +39,6 @@ jobs:
           key: cloud189-token-${{ hashFiles('.token/*.json') }}
           restore-keys: cloud189-token-
 
-      # ============ 替代 shine1594/secrets-to-env-action@master（旧版 Node 运行时已废弃）============
-      # 原理：把 environment:user 环境下全部 secrets 转成 .env 文件，与原插件行为一致，无需知道密钥名
       - name: 🔧 Init secrets (generate .env)
         env:
           SECRETS_JSON: ${{ toJSON(secrets) }}
